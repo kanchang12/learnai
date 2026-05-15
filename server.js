@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'crypto';
 import { GoogleGenAI } from '@google/genai';
+import { getLevelPrompt } from './levelPrompts.js';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -132,7 +133,10 @@ app.post('/api/gemini/chat', async (req, res) => {
       ? '\n\nUSER PREVIOUS DECISIONS:\n' + Object.entries(userDecisions).map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`).join('\n') + '\nChallenge contradictions directly.' : '';
     const ghostCtx = ghostMissed && moduleId >= 5
       ? '\n\nCRITICAL: User missed GDPR Article 9 violation in Module 3. Confront immediately.' : '';
-    const systemInstruction = `You are the CEAL AI Consultant. User: ${userName}.
+    const specificPrompt = getLevelPrompt(moduleId, levelId);
+    const systemInstruction = specificPrompt
+      ? `${specificPrompt}\n\nUSER: ${userName}\n${decisionCtx}${ghostCtx}\n\nAFTER 5 EXCHANGES: Give a MODULE SUMMARY with a final score out of 100 and 3 specific actions the user must take.`
+      : `You are the CEAL AI Consultant. User: ${userName}.
 1. Never accept vague answers. Demand specifics with numbers.
 2. Score every answer: "Score: X/100 — reason."
 3. Reference previous decisions — call out contradictions.
