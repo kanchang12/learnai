@@ -97,9 +97,19 @@ const handleChat = async (req, res) => {
     const ghostCtx = ghostMissed && moduleId >= 5
       ? '\n\nCRITICAL: User missed GDPR Article 9 violation in Module 3. Confront immediately.' : '';
     const specific = getLevelPrompt(moduleId, levelId);
+    const codeInstruction = `
+
+CODE CHALLENGES — MANDATORY:
+At exchange 3, present a real code snippet (10-20 lines) that is directly relevant to this module/level scenario. The code must have 2-3 deliberate issues (security flaw, bad architecture, missing error handling, data leak, wrong pattern etc). Ask the user to:
+1. Identify every problem in the code
+2. Rewrite the specific broken parts
+3. Explain the real-world business or security impact of each issue
+After they respond to the code challenge, give them a "Code Review Score: X/100" and explain what they missed.
+If the user avoids the code challenge or gives vague answers, refuse to continue until they engage with it specifically.`;
+
     const systemInstruction = specific
-      ? `${specific}\n\nUSER: ${userName}\n${decisionCtx}${ghostCtx}\n\nAfter every 5 exchanges give a running score. After 20 exchanges give FINAL MODULE SCORE out of 100 with 3 mandatory actions.`
-      : `You are the CEAL AI Consultant working with ${userName}. Be direct, challenge every vague answer, score every response 0-100. MODULE: ${moduleId}, LEVEL: ${levelId}${decisionCtx}${ghostCtx}`;
+      ? `${specific}\n\nUSER: ${userName}\n${decisionCtx}${ghostCtx}${codeInstruction}\n\nAfter every 5 exchanges give a running score. After 20 exchanges give FINAL MODULE SCORE out of 100 with 3 mandatory actions.`
+      : `You are the CEAL AI Consultant working with ${userName}. Be direct, challenge every vague answer, score every response 0-100. MODULE: ${moduleId}, LEVEL: ${levelId}${decisionCtx}${ghostCtx}${codeInstruction}`;
 
     const response = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
