@@ -89,8 +89,11 @@ app.get('/api/admin/data', async (req, res) => {
 });
 
 // ── Gemini chat ────────────────────────────────────────────────
-app.post('/api/gemini/chat', async (req, res) => {
-  const { moduleId, levelId, userName, messages, userDecisions, ghostMissed } = req.body;
+const handleChat = async (req, res) => {
+  const body = req.method === 'GET' ? req.query : req.body;
+  let { moduleId, levelId, userName, messages, userDecisions, ghostMissed } = body;
+  if (typeof messages === 'string') { try { messages = JSON.parse(messages); } catch { messages = []; } }
+  if (typeof userDecisions === 'string') { try { userDecisions = JSON.parse(userDecisions); } catch { userDecisions = {}; } }
   if (!Array.isArray(messages) || messages.length === 0)
     return res.status(400).json({ error: 'messages array required' });
   try {
@@ -113,11 +116,15 @@ app.post('/api/gemini/chat', async (req, res) => {
     console.error('[Gemini Chat Error]', err.message);
     return res.status(500).json({ error: err.message });
   }
-});
+};
+app.get('/api/gemini/chat', handleChat);
+app.post('/api/gemini/chat', handleChat);
 
 // ── Gemini evaluate ────────────────────────────────────────────
-app.post('/api/gemini/evaluate', async (req, res) => {
-  const { type, moduleId, userInput, ghostMissed } = req.body;
+const handleEvaluate = async (req, res) => {
+  const body = req.method === 'GET' ? req.query : req.body;
+  let { type, moduleId, userInput, ghostMissed } = body;
+  if (typeof userInput === 'string') { try { userInput = JSON.parse(userInput); } catch { userInput = {}; } }
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
@@ -132,7 +139,9 @@ app.post('/api/gemini/evaluate', async (req, res) => {
     console.error('[Gemini Evaluate Error]', err.message);
     return res.status(500).json({ error: err.message });
   }
-});
+};
+app.get('/api/gemini/evaluate', handleEvaluate);
+app.post('/api/gemini/evaluate', handleEvaluate);
 
 // ── Static + SPA ───────────────────────────────────────────────
 app.use(express.static(join(__dirname, 'dist')));
