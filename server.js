@@ -13,7 +13,6 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 app.use(express.json({ limit: '4mb' }));
 app.use(express.urlencoded({ extended: true, limit: '4mb' }));
 
-// ── Helpers ────────────────────────────────────────────────────
 function hashPassword(p) {
   const salt = randomBytes(16).toString('hex');
   return salt + ':' + scryptSync(p, salt, 64).toString('hex');
@@ -34,12 +33,10 @@ async function supabaseFetch(path, options = {}) {
   return res.json();
 }
 
-// ── Config ─────────────────────────────────────────────────────
 app.get('/api/config', (_req, res) => {
   res.json({ paypalClientId: process.env.PAYPAL_CLIENT_ID || '' });
 });
 
-// ── Auth ───────────────────────────────────────────────────────
 app.post('/api/auth/register', async (req, res) => {
   const { name, email, password, tier, access_type, amount_inr, paypal_order_id, coupon_used } = req.body;
   if (!name || !email || !password || !tier) return res.status(400).json({ error: 'Missing required fields.' });
@@ -59,19 +56,16 @@ app.post('/api/auth/login', async (req, res) => {
   return res.json({ token: randomUUID(), user: { name: users[0].name, email: users[0].email, tier: users[0].tier } });
 });
 
-// ── Coupon ─────────────────────────────────────────────────────
 app.post('/api/validate-coupon', (req, res) => {
   const valid = (process.env.COUPON_CODES || 'JUDGE2026').split(',').map(c => c.trim().toUpperCase()).includes((req.body.code || '').trim().toUpperCase());
   return res.json({ valid });
 });
 
-// ── Log event ──────────────────────────────────────────────────
 app.post('/api/log-event', async (req, res) => {
   await supabaseFetch('login_events', { method: 'POST', body: JSON.stringify(req.body) });
   return res.json({ ok: true });
 });
 
-// ── Admin ──────────────────────────────────────────────────────
 const adminTokens = new Set();
 app.post('/api/admin/login', (req, res) => {
   if (req.body.email !== (process.env.ADMIN_EMAIL || 'kanchan.g12@gmail.com') ||
@@ -106,15 +100,12 @@ const handleChat = async (req, res) => {
     const systemInstruction = specific
       ? `${specific}\n\nUSER: ${userName}\n${decisionCtx}${ghostCtx}\n\nAfter every 5 exchanges give a running score. After 20 exchanges give FINAL MODULE SCORE out of 100 with 3 mandatory actions.`
       : `You are the CEAL AI Consultant working with ${userName}. Be direct, challenge every vague answer, score every response 0-100. MODULE: ${moduleId}, LEVEL: ${levelId}${decisionCtx}${ghostCtx}`;
-    const model = ai.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction,
-    });
-    const result = await model.generateContent({
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
       contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content }] })),
-      generationConfig: { temperature: 0.8 },
+      config: { systemInstruction, temperature: 0.8 },
     });
-    return res.json({ reply: result.response.text() });
+    return res.json({ reply: response.text });
   } catch (err) {
     console.error('[Gemini Chat Error]', err.message);
     return res.status(500).json({ error: err.message });
@@ -129,12 +120,12 @@ const handleEvaluate = async (req, res) => {
   let { type, moduleId, userInput, ghostMissed } = body;
   if (typeof userInput === 'string') { try { userInput = JSON.parse(userInput); } catch { userInput = {}; } }
   try {
-    const model = ai.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
-    const result = await model.generateContent({
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
       contents: [{ role: 'user', parts: [{ text: `CEAL evaluator. Module: ${moduleId}, Level: ${type}\nInput: ${JSON.stringify(userInput)}\n${ghostMissed ? 'Penalise PII violation if relevant.' : ''}\nFormat:\nSCORE: X/100\nFEEDBACK: [2-3 sentences]` }] }],
-      generationConfig: { temperature: 0.4 },
+      config: { temperature: 0.4 },
     });
-    const text = result.response.text() || '';
+    const text = response.text || '';
     const score = parseInt((text.match(/SCORE:\s*(\d+)/i) || [])[1] || '70');
     const feedback = (text.match(/FEEDBACK:\s*(.+)/is) || [])[1]?.trim() || text;
     return res.json({ score, feedback, passed: score >= 60 });
@@ -146,7 +137,6 @@ const handleEvaluate = async (req, res) => {
 app.get('/api/gemini/evaluate', handleEvaluate);
 app.post('/api/gemini/evaluate', handleEvaluate);
 
-// ── Static + SPA ───────────────────────────────────────────────
 app.use(express.static(join(__dirname, 'dist')));
 app.get('*', (_req, res) => res.sendFile(join(__dirname, 'dist', 'index.html')));
 
