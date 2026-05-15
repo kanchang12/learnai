@@ -33,6 +33,10 @@ export default function Dashboard({ user, progress, onEnterModule }: DashboardPr
   const completedCount = Object.keys(progress.completedLevels).length;
   const progressPct = Math.round((completedCount / totalLevels) * 100);
 
+  const avgScore = Object.values(progress.scores).length > 0
+    ? Math.round(Object.values(progress.scores).reduce((a, b) => a + b, 0) / Object.values(progress.scores).length)
+    : null;
+
   const allLevelsComplete = completedCount >= totalLevels;
   const hasPassing = avgScore !== null && avgScore >= 70;
   const canGetCertificate = allLevelsComplete && hasPassing;
