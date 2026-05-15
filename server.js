@@ -101,7 +101,7 @@ const handleChat = async (req, res) => {
       ? `${specific}\n\nUSER: ${userName}\n${decisionCtx}${ghostCtx}\n\nAfter every 5 exchanges give a running score. After 20 exchanges give FINAL MODULE SCORE out of 100 with 3 mandatory actions.`
       : `You are the CEAL AI Consultant working with ${userName}. Be direct, challenge every vague answer, score every response 0-100. MODULE: ${moduleId}, LEVEL: ${levelId}${decisionCtx}${ghostCtx}`;
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.1-flash-lite',
       contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content }] })),
       config: { systemInstruction, temperature: 0.8 },
     });
@@ -121,7 +121,7 @@ const handleEvaluate = async (req, res) => {
   if (typeof userInput === 'string') { try { userInput = JSON.parse(userInput); } catch { userInput = {}; } }
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.1-flash-lite',
       contents: [{ role: 'user', parts: [{ text: `CEAL evaluator. Module: ${moduleId}, Level: ${type}\nInput: ${JSON.stringify(userInput)}\n${ghostMissed ? 'Penalise PII violation if relevant.' : ''}\nFormat:\nSCORE: X/100\nFEEDBACK: [2-3 sentences]` }] }],
       config: { temperature: 0.4 },
     });
