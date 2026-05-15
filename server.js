@@ -126,7 +126,8 @@ app.get('/api/admin/data', async (req, res) => {
 });
 
 // ── Gemini chat ────────────────────────────────────────────────
-app.post('/api/gemini/chat', async (req, res) => {
+app.all('/api/gemini/chat', async (req, res) => {
+  req.body = req.body || req.query;
   try {
     const { moduleId, levelId, userName, messages, userDecisions, ghostMissed } = req.body;
     const decisionCtx = Object.entries(userDecisions || {}).length > 0
@@ -154,7 +155,8 @@ MODULE: ${moduleId}, LEVEL: ${levelId}`;
 });
 
 // ── Gemini evaluate ────────────────────────────────────────────
-app.post('/api/gemini/evaluate', async (req, res) => {
+app.all('/api/gemini/evaluate', async (req, res) => {
+  req.body = req.body || req.query;
   try {
     const { type, moduleId, userInput, ghostMissed } = req.body;
     const response = await ai.models.generateContent({
