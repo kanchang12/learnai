@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 
@@ -22,7 +22,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 COPY --from=builder /app/dist ./dist
 COPY server.js .
@@ -31,5 +31,4 @@ EXPOSE 8080
 ENV PORT=8080
 
 # GEMINI_API_KEY and COUPON_CODES are injected at runtime via Cloud Run env vars
-# — never baked into the image
 CMD ["node", "server.js"]
