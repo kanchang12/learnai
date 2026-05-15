@@ -16,6 +16,7 @@ WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY server.js .
+COPY levelPrompts.js .
 
 EXPOSE 8080
 ENV PORT=8080
