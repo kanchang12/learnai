@@ -128,8 +128,12 @@ app.get('/api/admin/data', async (req, res) => {
 // ── Gemini chat ────────────────────────────────────────────────
 app.all('/api/gemini/chat', async (req, res) => {
   req.body = req.body || req.query;
+  console.log('[Chat] body keys:', Object.keys(req.body || {}));
+  const messages = Array.isArray(req.body?.messages) ? req.body.messages
+    : typeof req.body?.messages === 'string' ? JSON.parse(req.body.messages) : [];
+  const { moduleId, levelId, userName, userDecisions, ghostMissed } = req.body;
+  if (!messages.length) return res.status(400).json({ error: 'messages array is empty or missing' });
   try {
-    const { moduleId, levelId, userName, messages, userDecisions, ghostMissed } = req.body;
     const decisionCtx = Object.entries(userDecisions || {}).length > 0
       ? '\n\nUSER PREVIOUS DECISIONS:\n' + Object.entries(userDecisions).map(([k, v]) => `- ${k}: ${JSON.stringify(v)}`).join('\n') + '\nChallenge contradictions directly.' : '';
     const ghostCtx = ghostMissed && moduleId >= 5
