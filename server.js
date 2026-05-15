@@ -141,7 +141,7 @@ app.post('/api/gemini/chat', async (req, res) => {
 ${decisionCtx}${ghostCtx}
 MODULE: ${moduleId}, LEVEL: ${levelId}`;
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-1.5-flash',
       contents: messages.map(m => ({ role: m.role, parts: [{ text: m.content }] })),
       config: { systemInstruction, temperature: 0.8 },
     });
@@ -154,7 +154,7 @@ app.post('/api/gemini/evaluate', async (req, res) => {
   try {
     const { type, moduleId, userInput, ghostMissed } = req.body;
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-1.5-flash',
       contents: `CEAL evaluator. Module: ${moduleId}, Level: ${type}\nInput: ${JSON.stringify(userInput)}\n${ghostMissed ? 'Penalize PII violation if relevant.' : ''}\nFormat:\nSCORE: X/100\nFEEDBACK: [Text]`,
       config: { temperature: 0.4 },
     });
