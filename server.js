@@ -106,12 +106,15 @@ const handleChat = async (req, res) => {
     const systemInstruction = specific
       ? `${specific}\n\nUSER: ${userName}\n${decisionCtx}${ghostCtx}\n\nAfter every 5 exchanges give a running score. After 20 exchanges give FINAL MODULE SCORE out of 100 with 3 mandatory actions.`
       : `You are the CEAL AI Consultant working with ${userName}. Be direct, challenge every vague answer, score every response 0-100. MODULE: ${moduleId}, LEVEL: ${levelId}${decisionCtx}${ghostCtx}`;
-    const response = await ai.models.generateContent({
+    const model = ai.getGenerativeModel({
       model: 'gemini-2.0-flash',
-      contents: messages.map(m => ({ role: m.role, parts: [{ text: m.content }] })),
-      config: { systemInstruction, temperature: 0.8 },
+      systemInstruction,
     });
-    return res.json({ reply: response.text });
+    const result = await model.generateContent({
+      contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content }] })),
+      generationConfig: { temperature: 0.8 },
+    });
+    return res.json({ reply: result.response.text() });
   } catch (err) {
     console.error('[Gemini Chat Error]', err.message);
     return res.status(500).json({ error: err.message });
@@ -126,12 +129,12 @@ const handleEvaluate = async (req, res) => {
   let { type, moduleId, userInput, ghostMissed } = body;
   if (typeof userInput === 'string') { try { userInput = JSON.parse(userInput); } catch { userInput = {}; } }
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: `CEAL evaluator. Module: ${moduleId}, Level: ${type}\nInput: ${JSON.stringify(userInput)}\n${ghostMissed ? 'Penalise PII violation if relevant.' : ''}\nFormat:\nSCORE: X/100\nFEEDBACK: [2-3 sentences]`,
-      config: { temperature: 0.4 },
+    const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: `CEAL evaluator. Module: ${moduleId}, Level: ${type}\nInput: ${JSON.stringify(userInput)}\n${ghostMissed ? 'Penalise PII violation if relevant.' : ''}\nFormat:\nSCORE: X/100\nFEEDBACK: [2-3 sentences]` }] }],
+      generationConfig: { temperature: 0.4 },
     });
-    const text = response.text || '';
+    const text = result.response.text() || '';
     const score = parseInt((text.match(/SCORE:\s*(\d+)/i) || [])[1] || '70');
     const feedback = (text.match(/FEEDBACK:\s*(.+)/is) || [])[1]?.trim() || text;
     return res.json({ score, feedback, passed: score >= 60 });
