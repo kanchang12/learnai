@@ -11,8 +11,14 @@ import Dashboard from './components/Dashboard.tsx';
 import ModuleView from './components/ModuleView.tsx';
 import LevelView from './components/LevelView.tsx';
 import LandingPage from './components/LandingPage.tsx';
+import AdminPanel from './components/AdminPanel.tsx';
 
 export default function App() {
+  // Admin route — renders the admin panel when URL is /admin
+  if (window.location.pathname === '/admin') {
+    return <AdminPanel />;
+  }
+
   const [user, setUser] = useState<User | null>(null);
   const [progress, setProgress] = useState<UserProgress>({
     completedLevels: {},
