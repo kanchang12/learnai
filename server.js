@@ -129,7 +129,7 @@ const handleEvaluate = async (req, res) => {
   let { type, moduleId, userInput, ghostMissed } = body;
   if (typeof userInput === 'string') { try { userInput = JSON.parse(userInput); } catch { userInput = {}; } }
   try {
-    const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = ai.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
     const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: `CEAL evaluator. Module: ${moduleId}, Level: ${type}\nInput: ${JSON.stringify(userInput)}\n${ghostMissed ? 'Penalise PII violation if relevant.' : ''}\nFormat:\nSCORE: X/100\nFEEDBACK: [2-3 sentences]` }] }],
       generationConfig: { temperature: 0.4 },
