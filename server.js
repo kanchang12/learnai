@@ -2,13 +2,13 @@ import express from 'express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { randomUUID, scryptSync, randomBytes, timingSafeEqual } from 'crypto';
-import { GoogleGenAI } from '@google/genai';
+import Groq from 'groq-sdk';
 import { getLevelPrompt } from './levelPrompts.js';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 app.use(express.json({ limit: '4mb' }));
 app.use(express.urlencoded({ extended: true, limit: '4mb' }));
@@ -82,7 +82,7 @@ app.get('/api/admin/data', async (req, res) => {
   return res.json(await supabaseFetch('login_events?order=logged_at.desc') || []);
 });
 
-// ── Gemini chat ────────────────────────────────────────────────
+// ── Groq chat ──────────────────────────────────────────────────
 const handleChat = async (req, res) => {
   const body = req.method === 'GET' ? req.query : req.body;
   let { moduleId, levelId, userName, messages, userDecisions, ghostMissed } = body;
@@ -100,37 +100,44 @@ const handleChat = async (req, res) => {
     const systemInstruction = specific
       ? `${specific}\n\nUSER: ${userName}\n${decisionCtx}${ghostCtx}\n\nAfter every 5 exchanges give a running score. After 20 exchanges give FINAL MODULE SCORE out of 100 with 3 mandatory actions.`
       : `You are the CEAL AI Consultant working with ${userName}. Be direct, challenge every vague answer, score every response 0-100. MODULE: ${moduleId}, LEVEL: ${levelId}${decisionCtx}${ghostCtx}`;
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
-      contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content }] })),
-      config: { systemInstruction, temperature: 0.8 },
+
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemInstruction },
+        ...messages.map(m => ({ role: m.role === 'model' ? 'assistant' : m.role, content: m.content })),
+      ],
+      temperature: 0.8,
+      max_tokens: 2048,
     });
-    return res.json({ reply: response.text });
+
+    return res.json({ reply: response.choices[0]?.message?.content || '' });
   } catch (err) {
-    console.error('[Gemini Chat Error]', err.message);
+    console.error('[Groq Chat Error]', err.message);
     return res.status(500).json({ error: err.message });
   }
 };
 app.get('/api/gemini/chat', handleChat);
 app.post('/api/gemini/chat', handleChat);
 
-// ── Gemini evaluate ────────────────────────────────────────────
+// ── Groq evaluate ──────────────────────────────────────────────
 const handleEvaluate = async (req, res) => {
   const body = req.method === 'GET' ? req.query : req.body;
   let { type, moduleId, userInput, ghostMissed } = body;
   if (typeof userInput === 'string') { try { userInput = JSON.parse(userInput); } catch { userInput = {}; } }
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
-      contents: [{ role: 'user', parts: [{ text: `CEAL evaluator. Module: ${moduleId}, Level: ${type}\nInput: ${JSON.stringify(userInput)}\n${ghostMissed ? 'Penalise PII violation if relevant.' : ''}\nFormat:\nSCORE: X/100\nFEEDBACK: [2-3 sentences]` }] }],
-      config: { temperature: 0.4 },
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: `CEAL evaluator. Module: ${moduleId}, Level: ${type}\nInput: ${JSON.stringify(userInput)}\n${ghostMissed ? 'Penalise PII violation if relevant.' : ''}\nFormat:\nSCORE: X/100\nFEEDBACK: [2-3 sentences]` }],
+      temperature: 0.4,
+      max_tokens: 512,
     });
-    const text = response.text || '';
+    const text = response.choices[0]?.message?.content || '';
     const score = parseInt((text.match(/SCORE:\s*(\d+)/i) || [])[1] || '70');
     const feedback = (text.match(/FEEDBACK:\s*(.+)/is) || [])[1]?.trim() || text;
     return res.json({ score, feedback, passed: score >= 60 });
   } catch (err) {
-    console.error('[Gemini Evaluate Error]', err.message);
+    console.error('[Groq Evaluate Error]', err.message);
     return res.status(500).json({ error: err.message });
   }
 };
